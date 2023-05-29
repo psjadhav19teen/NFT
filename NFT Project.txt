@@ -1,0 +1,220 @@
+creating your own NFT
+-------------------------
+1) create folder mynft
+2) launch via mynft
+3) open gitbash terminal or terminal
+4) type below command
+
+>npm init
+>npx hardhat   (select javascript lang)
+>npm install --save-dev "hardhat" "@nomicfoundation/hardhat-toolbox"
+
+5) create contract as MyCokeNFT.sol under contracts folder
+
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.5.0 <0.9.0;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+
+contract MyCokeNFT is ERC721URIStorage, Ownable {
+    using Counters for Counters.Counter;
+
+    Counters.Counter private _tokenIds;
+
+    constructor() ERC721("My First Coke NFT", "MFC") {}
+
+    function mintNFT(address recipient, string memory tokenURI)
+        public
+        onlyOwner
+        returns (uint256)
+    {
+        _tokenIds.increment();
+
+        uint256 newItemId = _tokenIds.current();
+        _mint(recipient, newItemId);
+        _setTokenURI(newItemId, tokenURI);
+        return newItemId;
+    }
+}
+
+
+6) install dependencies 
+>npm install @openzeppelin/contracts
+
+After installation if vscode gives error then check solidity extension settings. Disable error settings.
+
+7) complile contract
+>npx hardhat compile
+or
+>npx hardhat clean
+
+8) edit deploy.js file
+
+async function main() {
+  const MyCokeNFT = await ethers.getContractFactory("MyCokeNFT");
+
+  // Start deployment, returning a promise that resolves to a contract object
+  const myCokeNFT = await MyCokeNFT.deploy();
+  console.log("Contract deployed to address:", myCokeNFT.address);
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+
+
+9) edit hardhat.config.js
+/**
+ * @type import('hardhat/config').HardhatUserConfig
+ */
+require("dotenv").config();
+require("@nomiclabs/hardhat-ethers");
+require("@nomiclabs/hardhat-waffle");
+const { API_URL, PRIVATE_KEY } = process.env;
+
+module.exports = {
+  solidity: "0.8.7",
+  defaultNetwork: "goerli",
+  networks: {
+    hardhat: {},
+    goerli: {
+      url: API_URL,
+      accounts: [`0x${PRIVATE_KEY}`],
+    },
+  },
+};
+
+10) create .env file under test folder open gitbash terminal and type below command
+
+>cd test
+>touch  .env
+
+API_URL="https://eth-goerli.g.alchemy.com/v2/fe0rwIGll7D_08AS-6CDRWNkq_SjtDLT"
+PRIVATE_KEY="0b673eb34ed87d8fe037043f39290338af149c7273e1790f2eb13b888e8fa154"
+PUBLIC_KEY="0xaB08d9115791Bb810166Cc63dA436acE70F8024C"
+
+
+Note:-open alchmy account and create MyCokeNFT project and select goerli network and 
+copy API_URL. Then go to metamask account and copy PRIVATE_KEY for your goerli account then copy 
+your account address as PUBLIC_KEY.
+
+
+11) Save your project and install below packages.
+
+>npm install --save-dev @nomiclabs/hardhat-waffle 'ethereum-waffle@^3.0.0' @nomiclabs/hardhat-ethers 'ethers@^5.0.0' @types/sinon-chai@^3.2.3
+
+>npm install dotenv --save
+
+>npm install @alch/alchemy-web3
+
+12) Deploy our contract from gitbash terminal or terminal
+>npx hardhat compile
+>npx hardhat run scripts/deploy.js  --network   goerli
+
+copy the contract address
+
+
+You can see transaction of this contract under goerli etherscan.
+
+
+13) create mint-nft.js file inside scripts folder
+
+require("dotenv").config();
+const API_URL = process.env.API_URL;
+
+const PUBLIC_KEY = process.env.PUBLIC_KEY;
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
+const { createAlchemyWeb3 } = require("@alch/alchemy-web3");
+const web3 = createAlchemyWeb3(API_URL);
+
+const contract = require("../artifacts/contracts/MyCokeNFT.sol/MyCokeNFT.json");
+
+console.log(JSON.stringify(contract.abi));
+
+const contractAddress = "0x9C5D73255ca3D342c8ec5dE3330271BDB8Ed8fD2";
+const nftContract = new web3.eth.Contract(contract.abi, contractAddress);
+//create transaction
+async function mintNFT(tokenURI) {
+  const nonce = await web3.eth.getTransactionCount(PUBLIC_KEY, "latest"); //get latest nonce
+
+  //the transaction
+  const tx = {
+    from: PUBLIC_KEY,
+    to: contractAddress,
+    nonce: nonce,
+    gas: 500000,
+    data: nftContract.methods.mintNFT(PUBLIC_KEY, tokenURI).encodeABI(),
+  };
+
+  const signPromise = web3.eth.accounts.signTransaction(tx, PRIVATE_KEY);
+  signPromise
+    .then((signedTx) => {
+      web3.eth.sendSignedTransaction(
+        signedTx.rawTransaction,
+        function (err, hash) {
+          if (!err) {
+            console.log(
+              "The hash of your transaction is: ",
+              hash,
+              "\nCheck Alchemy's Mempool to view the status of your transaction!"
+            );
+          } else {
+            console.log(
+              "Something went wrong when submitting your transaction:",
+              err
+            );
+          }
+        }
+      );
+    })
+    .catch((err) => {
+      console.log(" Promise failed:", err);
+    });
+}
+mintNFT(
+  "https://gateway.pinata.cloud/ipfs/QmQRuKLs6pdTGFo6RGfrGffwSbZK7usPMCD8bGB8DSSsgw"
+);
+
+
+Note:- Here paste the contract address which is created earlier. Then create account on pinata and upload one Coke Image file(jpeg)
+After adding open that image in url after ipfs paste that image CID which you can find in front of image in pinata 
+
+Copy this url and paste it under mint-nft.js at end of file.
+
+14) create another file as nft-metadata.json
+
+{
+    "attributes": [
+      {
+        "color": "Blue",
+        "value": "ABC"
+      }
+    ],
+    "description": "This is my First ever NFT Created in Coke Industry",
+    "image": "https://gateway.pinata.cloud/ipfs/QmQRuKLs6pdTGFo6RGfrGffwSbZK7usPMCD8bGB8DSSsgw",
+    "name": "GuruArtCollection"
+}
+
+
+NOte:- In this file also paste pinata url 
+
+15) In pinata login upload this nft-metadata.json file.
+
+16) go to gitbash terminal or in terminal
+
+>node scripts/mint-nft.js
+
+it will show transaction hash of NFT creation
+Goto goerli etherscan by using contract address you can see NFT has minted(created) 
+
+17) If you want to import this NFT in metamask account click on import NFT then put TokenID from goerli etherscan like 1
+after doing this you can see your nft is added in your account.
+
+Now to can keep this or if u want to send to some other account that also you can do.
+
